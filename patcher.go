@@ -1,6 +1,14 @@
 package patcher
 
-import "reflect"
+import (
+	"encoding/json"
+	"fmt"
+	"reflect"
+	"strconv"
+	"strings"
+	"unicode"
+	"unicode/utf8"
+)
 
 // Patcher use to Patch values of a struct
 type Patcher interface {
@@ -14,11 +22,104 @@ func NewPatcher() Patcher {
 	}
 }
 
+var NumberType reflect.Type = reflect.TypeOf(json.Number(""))
+
 type reflectPatcher struct {
 	cache map[string]reflect.Value
 }
 
-func (r *reflectPatcher) PatchIt(it interface{}, patches map[string]interface{}) []string {
-	var effectPath []string
-	return effectPath
+func (p *reflectPatcher) tokenize(path string) []string {
+	var toks []string
+	for _, tok := range strings.Split(path, ".") {
+		toks = append(toks, upperFirst(tok))
+	}
+	return toks
+}
+
+func (p *reflectPatcher) PatchIt(target interface{}, patches map[string]interface{}) []string {
+	var patchedSegs []string
+	targetValue := reflect.ValueOf(target)
+	for path, value := range patches {
+		tokens := p.tokenize(path)
+		patchedSegs = append(patchedSegs, tokens[0])
+		v := p.patchRecursive("", targetValue, tokens, "", value)
+		if v == nil {
+			panic(fmt.Sprintf("Can found field %v to patch", tokens))
+		}
+		if !v.CanSet() {
+			panic("12121")
+		}
+		valueType := reflect.TypeOf(value)
+		if valueType == NumberType {
+			nv := value.(json.Number)
+			switch v.Kind() {
+			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+				n, err := strconv.ParseInt(string(nv), 10, 64)
+				if err != nil || v.OverflowInt(n) {
+					panic(fmt.Sprintf("number %v as %s patch failure err: %v", value, v.Type(), err))
+				}
+				v.SetInt(n)
+				continue
+
+			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+				n, err := strconv.ParseUint(string(nv), 10, 64)
+				if err != nil || v.OverflowUint(n) {
+					panic(fmt.Sprintf("number %v as %s patch failure err: %v", value, v.Type(), err))
+				}
+				v.SetUint(n)
+				continue
+
+			case reflect.Float32, reflect.Float64:
+				n, err := strconv.ParseFloat(string(nv), v.Type().Bits())
+				if err != nil || v.OverflowFloat(n) {
+					panic(fmt.Sprintf("number %v as %s patch failure err: %v", value, v.Type(), err))
+				}
+				v.SetFloat(n)
+				continue
+			default:
+				// will panic...
+				v.Set(reflect.ValueOf(value))
+				continue
+			}
+		} else {
+			v.Set(reflect.ValueOf(value))
+		}
+	}
+	return patchedSegs
+}
+
+func (p *reflectPatcher) patchRecursive(fieldName string, targetValue reflect.Value, tokens []string, path string, value interface{}) *reflect.Value {
+	switch targetValue.Kind() {
+	case reflect.Ptr:
+		originalValue := targetValue.Elem()
+		return p.patchRecursive(fieldName, originalValue, tokens, path, value)
+	case reflect.Interface:
+		originalValue := targetValue.Elem()
+		return p.patchRecursive(fieldName, originalValue, tokens, path, value)
+	case reflect.Struct:
+		typeOfT := targetValue.Type()
+		for i := 0; i < targetValue.NumField(); i += 1 {
+			currentTok := tokens[0]
+			if typeOfT.Field(i).Name == currentTok {
+				path = path + "." + currentTok
+				return p.patchRecursive(typeOfT.Field(i).Name, targetValue.Field(i), tokens[1:], path, value)
+			}
+		}
+	case reflect.Array, reflect.Slice:
+		return nil
+	default:
+		if targetValue.IsValid() {
+			return &targetValue
+		}
+		return nil
+	}
+	return nil
+}
+
+func upperFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[n:]
 }
