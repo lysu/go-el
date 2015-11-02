@@ -42,7 +42,7 @@ func (p *reflectPatcher) PatchIt(target interface{}, patches map[string]interfac
 	for path, value := range patches {
 		tokens := p.tokenize(path)
 		patchedSegs = append(patchedSegs, tokens[0])
-		v := p.patchRecursive("", targetValue, tokens, "", value)
+		v, vname := p.patchRecursive("", targetValue, tokens, "", value)
 		if v == nil {
 			panic(fmt.Sprintf("Can found field %v to patch", tokens))
 		}
@@ -56,7 +56,7 @@ func (p *reflectPatcher) PatchIt(target interface{}, patches map[string]interfac
 			case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 				n, err := strconv.ParseInt(string(nv), 10, 64)
 				if err != nil || v.OverflowInt(n) {
-					panic(fmt.Sprintf("number %v as %s patch failure err: %v", value, v.Type(), err))
+					panic(fmt.Sprintf("field: %s, number %v as %s patch failure err: %v", vname, value, v.Type(), err))
 				}
 				v.SetInt(n)
 				continue
@@ -88,7 +88,7 @@ func (p *reflectPatcher) PatchIt(target interface{}, patches map[string]interfac
 	return patchedSegs
 }
 
-func (p *reflectPatcher) patchRecursive(fieldName string, targetValue reflect.Value, tokens []string, path string, value interface{}) *reflect.Value {
+func (p *reflectPatcher) patchRecursive(fieldName string, targetValue reflect.Value, tokens []string, path string, value interface{}) (*reflect.Value, string) {
 	switch targetValue.Kind() {
 	case reflect.Ptr:
 		originalValue := targetValue.Elem()
@@ -106,14 +106,14 @@ func (p *reflectPatcher) patchRecursive(fieldName string, targetValue reflect.Va
 			}
 		}
 	case reflect.Array, reflect.Slice:
-		return nil
+		return nil, ""
 	default:
 		if targetValue.IsValid() {
-			return &targetValue
+			return &targetValue, fieldName
 		}
-		return nil
+		return nil, ""
 	}
-	return nil
+	return nil, ""
 }
 
 func upperFirst(s string) string {
