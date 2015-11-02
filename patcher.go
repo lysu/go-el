@@ -64,7 +64,7 @@ func (p *reflectPatcher) PatchIt(target interface{}, patches map[string]interfac
 			case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 				n, err := strconv.ParseUint(string(nv), 10, 64)
 				if err != nil || v.OverflowUint(n) {
-					panic(fmt.Sprintf("number %v as %s patch failure err: %v", value, v.Type(), err))
+					panic(fmt.Sprintf("field: %v, number %v as %s patch failure err: %v", vname, value, v.Type(), err))
 				}
 				v.SetUint(n)
 				continue
@@ -72,17 +72,19 @@ func (p *reflectPatcher) PatchIt(target interface{}, patches map[string]interfac
 			case reflect.Float32, reflect.Float64:
 				n, err := strconv.ParseFloat(string(nv), v.Type().Bits())
 				if err != nil || v.OverflowFloat(n) {
-					panic(fmt.Sprintf("number %v as %s patch failure err: %v", value, v.Type(), err))
+					panic(fmt.Sprintf("field: %v, number %v as %s patch failure err: %v", value, v.Type(), err))
 				}
 				v.SetFloat(n)
 				continue
 			default:
-				// will panic...
-				v.Set(reflect.ValueOf(value))
-				continue
+				panic(fmt.Sprintf("field %s use value %v to patch %s type", vname, value, v.Kind()))
 			}
 		} else {
-			v.Set(reflect.ValueOf(value))
+			vv := reflect.ValueOf(value)
+			if v.Type() != vv.Type() {
+				panic(fmt.Sprintf("field %s use value %v to patch %s type", vname, vv.Type(), v.Type()))
+			}
+			v.Set(vv)
 		}
 	}
 	return patchedSegs
