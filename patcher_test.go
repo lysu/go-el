@@ -60,9 +60,11 @@ func toString(data interface{}) string {
 
 func TestPatchTopLevelString(t *testing.T) {
 	assert := assert.New(t)
-	patcher := patcher.NewPatcher()
+	p := patcher.Patcher{}
 	b := buildTestBlog()
-	ps := map[string]interface{}{"title": "hehe title"}
-	patcher.PatchIt(b, ps)
-	assert.Equal("hehe title", b.Title)
+	ps := patcher.Patch{
+		patcher.Path("title"): "hehe 233",
+	}
+	p.PatchIt(b, ps)
+	assert.Equal("hehe 233", b.Title)
 }

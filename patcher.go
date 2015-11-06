@@ -10,14 +10,16 @@ import (
 	"unicode/utf8"
 )
 
-// Patcher use to patch in memory struct with path
-type Patcher struct {
-	Cache map[string]reflect.Value
-}
+// NumberType patch api use this type to deserialize JSON request in Golang
+var NumberType = reflect.TypeOf(json.Number(""))
 
+// Path to Patch
 type Path string
 
-func (p Path) Tokenize() []string {
+// Patch present a group of Patch and value
+type Patch map[Path]interface{}
+
+func (p Path) tokenize() []string {
 	var toks []string
 	for _, tok := range strings.Split(string(p), ".") {
 		toks = append(toks, upperFirst(tok))
@@ -25,50 +27,33 @@ func (p Path) Tokenize() []string {
 	return toks
 }
 
-func (p Path) Segment() string {
-	idx := strings.Index(string(p), ".")
-	if idx == -1 {
-		return ""
-	}
-	return upperFirst(string(p)[:idx])
-}
+// Patcher use to patch in memory struct with path
+type Patcher struct{}
 
-func upperFirst(s string) string {
-	if s == "" {
-		return ""
-	}
-	r, n := utf8.DecodeRuneInString(s)
-	return string(unicode.ToUpper(r)) + s[n:]
-}
-
-// NumberType avada patch api use this type to deserialize request
-var NumberType = reflect.TypeOf(json.Number(""))
-
-// DoPatch do patch job
-// and generate segment update statstic
-func (p *Patcher) DoPatch(target interface{}, paths map[Path]interface{}) ([]string, error) {
+// PatchIt do patch work
+func (p *Patcher) PatchIt(target interface{}, patch Patch) error {
 
 	targetValue := reflect.ValueOf(target)
 
-	for path, value := range paths {
+	for path, value := range patch {
 
 		fieldName, fieldValue, err := p.locateField(targetValue, path)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 		err = p.setValue(fieldName, fieldValue, value)
 		if err != nil {
-			return nil, err
+			return err
 		}
 
 	}
 
-	return p.updatedSegments(p.Segments()), nil
+	return nil
 }
 
 func (p *Patcher) locateField(modified reflect.Value, path Path) (string, *reflect.Value, error) {
-	tokens := path.Tokenize()
+	tokens := path.tokenize()
 	fieldValue, fieldName := p.patchRecursive("", modified, tokens, "")
 	if fieldValue == nil {
 		return "", nil, fmt.Errorf("无法匹配的Patch表达式: %s", string(path))
@@ -124,43 +109,6 @@ func (p *Patcher) setValue(fieldName string, fieldValue *reflect.Value, rightVal
 	return nil
 }
 
-func (p *Patcher) updatedSegments(startPaths []string) []string {
-	updatedSegments := make(segmentSet)
-	for _, segment := range startPaths {
-		switch segment {
-		case "UserBasic":
-			updatedSegments.put("UserBasic")
-		case "Register":
-			updatedSegments.put("UserRegister", "RegAudit")
-		case "IdCard":
-			updatedSegments.put("UserIdCard", "IdCardAudit")
-		case "DriverLic":
-			updatedSegments.put("UserDriverLic", "DriverLicAudit")
-		case "UserQualification":
-			updatedSegments.put("UserQualification", "QualificationAudit")
-		case "RegAudit":
-			updatedSegments.put("RegAudit")
-		case "IdCardAudit":
-			updatedSegments.put("IdCardAudit")
-		case "DriverLicAudit":
-			updatedSegments.put("DriverLicAudit")
-		case "QualificationAudit":
-			updatedSegments.put("QualificationAudit")
-		case "Ownership":
-			updatedSegments.put("Ownership")
-		case "Vehicle":
-			updatedSegments.put("Ownership", "VehicleBasic", "VehicleLicense", "CompulsoryInsurance", "VehicleInsurance") // maybe some opt on this.
-		case "Image":
-			updatedSegments.put(
-				"Image",
-				"UserRegister", "RegAudit", "UserIdCard", "IdCardAudit", "UserDriverLic", "DriverLicAudit", "UserQualification", "QualificationAudit",
-				"Ownership", "VehicleBasic", "VehicleLicense", "CompulsoryInsurance", "VehicleInsurance",
-			)
-		}
-	}
-	return updatedSegments.asSlice()
-}
-
 func (p *Patcher) patchRecursive(fieldName string, targetValue reflect.Value, tokens []string, path string) (*reflect.Value, string) {
 	switch targetValue.Kind() {
 	case reflect.Ptr:
@@ -189,20 +137,10 @@ func (p *Patcher) patchRecursive(fieldName string, targetValue reflect.Value, to
 	return nil, ""
 }
 
-var emptyStruct = struct{}{}
-
-type segmentSet map[string]struct{}
-
-func (s *segmentSet) put(segs ...string) {
-	for _, seg := range segs {
-		(*s)[seg] = emptyStruct
+func upperFirst(s string) string {
+	if s == "" {
+		return ""
 	}
-}
-
-func (s *segmentSet) asSlice() []string {
-	var segs []string
-	for seg := range *s {
-		segs = append(segs, seg)
-	}
-	return segs
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[n:]
 }
