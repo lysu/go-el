@@ -41,7 +41,7 @@ func buildTestBlog() *Blog {
 		},
 		Date: t,
 		Comments: []Comment{
-			Comment{
+			{
 				NickName: "lysu",
 				Content:  "dajiangyou",
 				Date:     t,

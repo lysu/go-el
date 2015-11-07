@@ -10,6 +10,7 @@ const (
 	TokenError = iota
 	EOF
 
+	TokenKeyword
 	TokenIdentifier
 	TokenString
 	TokenNumber
@@ -17,14 +18,16 @@ const (
 )
 
 var (
-	tokenSpaceChars = " \n\r\t"
-	tokenIdentifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+	tokenSpaceChars                = " \n\r\t"
+	tokenIdentifierChars           = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 	tokenIdentifierCharsWithDigits = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789"
-	tokenDigits = "0123456789"
+	tokenDigits                    = "0123456789"
 
 	TokenSymbols = []string{
-		".", ";",
+		";", "(", ")", ".",
 	}
+
+	TokenKeywords = []string{"true", "false"}
 )
 
 type Error struct {
@@ -33,6 +36,20 @@ type Error struct {
 	Column     int
 	Token      *Token
 	ErrorMsg   string
+}
+
+// Returns a nice formatted error string.
+func (e *Error) Error() string {
+	s := "[Error"
+	if e.Line > 0 {
+		s += fmt.Sprintf(" | Line %d Col %d", e.Line, e.Column)
+		if e.Token != nil {
+			s += fmt.Sprintf(" near '%s'", e.Token.Val)
+		}
+	}
+	s += "] "
+	s += e.ErrorMsg
+	return s
 }
 
 type TokenType int
@@ -69,7 +86,7 @@ func Lex(input string) ([]*Token, *Error) {
 	}
 	l.run()
 	if l.errored {
-		errtoken := l.tokens[len(l.tokens) - 1]
+		errtoken := l.tokens[len(l.tokens)-1]
 		return nil, &Error{
 			Line:     errtoken.Line,
 			Column:   errtoken.Col,
@@ -164,7 +181,7 @@ func (l *lexer) errorf(format string, args ...interface{}) lexerStateFn {
 }
 
 func (l *lexer) eof() bool {
-	return l.start >= len(l.input) - 1
+	return l.start >= len(l.input)-1
 }
 
 func (l *lexer) run() {
@@ -182,7 +199,7 @@ func (l *lexer) run() {
 }
 
 func (l *lexer) stateCode() lexerStateFn {
-	outer_loop:
+outer_loop:
 	for {
 		switch {
 		case l.accept(tokenSpaceChars):
@@ -231,6 +248,12 @@ func (l *lexer) stateNumber() lexerStateFn {
 func (l *lexer) stateIdentifier() lexerStateFn {
 	l.acceptRun(tokenIdentifierChars)
 	l.acceptRun(tokenIdentifierCharsWithDigits)
+	for _, kw := range TokenKeywords {
+		if kw == l.value() {
+			l.emit(TokenKeyword)
+			return l.stateCode
+		}
+	}
 	l.emit(TokenIdentifier)
 	return l.stateCode
 }
