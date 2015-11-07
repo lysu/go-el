@@ -23,9 +23,7 @@ var (
 	tokenIdentifierCharsWithDigits = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789"
 	tokenDigits                    = "0123456789"
 
-	TokenSymbols = []string{
-		";", "(", ")", ".",
-	}
+	TokenSymbols = []string{";", "(", ")", "."}
 
 	TokenKeywords = []string{"true", "false"}
 )
