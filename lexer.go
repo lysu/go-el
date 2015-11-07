@@ -17,10 +17,10 @@ const (
 )
 
 var (
-	tokenSpaceChars                = " \n\r\t"
-	tokenIdentifierChars           = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
+	tokenSpaceChars = " \n\r\t"
+	tokenIdentifierChars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_"
 	tokenIdentifierCharsWithDigits = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789"
-	tokenDigits                    = "0123456789"
+	tokenDigits = "0123456789"
 
 	TokenSymbols = []string{
 		".", ";",
@@ -57,7 +57,8 @@ type lexer struct {
 	col       int
 }
 
-func lex(input string) ([]*Token, *Error) {
+// Lex do lexical analysis
+func Lex(input string) ([]*Token, *Error) {
 	l := &lexer{
 		input:     input,
 		tokens:    make([]*Token, 0, 100),
@@ -68,7 +69,7 @@ func lex(input string) ([]*Token, *Error) {
 	}
 	l.run()
 	if l.errored {
-		errtoken := l.tokens[len(l.tokens)-1]
+		errtoken := l.tokens[len(l.tokens) - 1]
 		return nil, &Error{
 			Line:     errtoken.Line,
 			Column:   errtoken.Col,
@@ -163,7 +164,7 @@ func (l *lexer) errorf(format string, args ...interface{}) lexerStateFn {
 }
 
 func (l *lexer) eof() bool {
-	return l.start >= len(l.input)-1
+	return l.start >= len(l.input) - 1
 }
 
 func (l *lexer) run() {
@@ -181,7 +182,7 @@ func (l *lexer) run() {
 }
 
 func (l *lexer) stateCode() lexerStateFn {
-outer_loop:
+	outer_loop:
 	for {
 		switch {
 		case l.accept(tokenSpaceChars):
