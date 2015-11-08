@@ -186,6 +186,12 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 				} else {
 					return nil, fmt.Errorf("Index out of range: %d (variable %s)", pv.Integer(), vr.String())
 				}
+			case reflect.Map:
+				resolveValue := pv.getResolvedValue()
+				if pv.IsInteger() {
+					resolveValue = reflect.ValueOf(pv.String())
+				}
+				current = current.MapIndex(resolveValue)
 			default:
 				return nil, fmt.Errorf("Can't access an index on type %s (variable %s)",
 					current.Kind().String(), vr.String())

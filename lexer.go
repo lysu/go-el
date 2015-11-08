@@ -3,6 +3,7 @@ package patcher
 import (
 	"fmt"
 	"strings"
+	"unicode"
 	"unicode/utf8"
 )
 
@@ -81,9 +82,17 @@ func (l *lexer) length() int {
 }
 
 func (l *lexer) emit(t TokenType) {
+	l.emitWithChange(t, nil)
+}
+
+func (l *lexer) emitWithChange(t TokenType, changeToken func(string) string) {
+	value := l.value()
+	if changeToken != nil {
+		value = changeToken(value)
+	}
 	tok := &Token{
 		Typ:  t,
-		Val:  l.value(),
+		Val:  value,
 		Line: l.startline,
 		Col:  l.startcol,
 	}
@@ -97,6 +106,14 @@ func (l *lexer) emit(t TokenType) {
 	l.start = l.pos
 	l.startline = l.line
 	l.startcol = l.col
+}
+
+func upperFirst(s string) string {
+	if s == "" {
+		return ""
+	}
+	r, n := utf8.DecodeRuneInString(s)
+	return string(unicode.ToUpper(r)) + s[n:]
 }
 
 func (l *lexer) next() rune {
@@ -230,7 +247,7 @@ func (l *lexer) stateIdentifier() lexerStateFn {
 			return l.stateCode
 		}
 	}
-	l.emit(TokenIdentifier)
+	l.emitWithChange(TokenIdentifier, upperFirst)
 	return l.stateCode
 }
 

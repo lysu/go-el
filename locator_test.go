@@ -4,7 +4,6 @@ import (
 	"testing"
 
 	"encoding/json"
-	"fmt"
 	"github.com/lysu/go-struct-patcher"
 	"github.com/stretchr/testify/assert"
 	"strconv"
@@ -108,6 +107,23 @@ func TestIndexAccess(t *testing.T) {
 
 	v, err := patcher.Locate(&user, patcher.Path("ImgIDList[2]"))
 	assert.NoError(t, err)
-	fmt.Printf("%s", v.String())
+	assert.Equal(t, 2, v.Integer())
+	err = v.SetValue(7)
+	assert.NoError(t, err)
+	assert.Equal(t, 7, user.ImgIDList[2])
+
+	v, err = patcher.Locate(&user, patcher.Path("ImgIdx[2].Content"))
+	assert.NoError(t, err)
+	assert.Equal(t, "しゃしん3.jpg", v.String())
+	err = v.SetValue("しゃしん4.jpg")
+	assert.NoError(t, err)
+	assert.Equal(t, "しゃしん4.jpg", user.ImgIdx["2"].Content)
+
+	v, err = patcher.Locate(&user, patcher.Path("ImgIdx[ImgIDList[0]].Content"))
+	assert.NoError(t, err)
+	assert.Equal(t, "しゃしん１.jpg", v.String())
+	err = v.SetValue("しゃしん233.jpg")
+	assert.NoError(t, err)
+	assert.Equal(t, "しゃしん233.jpg", user.ImgIdx["0"].Content)
 
 }

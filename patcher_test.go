@@ -1,70 +1,63 @@
 package patcher_test
 
 import (
-	"encoding/json"
 	"testing"
 	"time"
 
-	"github.com/lysu/go-struct-patcher"
+	p "github.com/lysu/go-struct-patcher"
 	"github.com/stretchr/testify/assert"
 )
 
-type Author struct {
-	Name    string `json:"name"`
-	Country string `json:"country"`
-}
-
 type Comment struct {
-	NickName string    `json:"nickName"`
-	Content  string    `json:"content"`
-	Date     time.Time `json:"date"`
+	NickName string
+	Content  string
+	Date     time.Time
 }
 
 type Blog struct {
-	Title     string    `json:"title"`
-	Content   string    `json:"content"`
-	ViewCount uint64    `json:"viewCount"`
-	Author    Author    `json:"author"`
-	Date      time.Time `json:"date"`
-	Comments  []Comment `json:"comments"`
+	Title      string
+	CommentIds []uint64
+	Comments   map[string]*Comment
 }
 
-func buildTestBlog() *Blog {
-	t := time.Now()
-	return &Blog{
-		Title:     "Blog title1",
-		Content:   "we are the blog content",
-		ViewCount: 12,
-		Author: Author{
-			Name:    "robi",
-			Country: "cn-ZH",
-		},
-		Date: t,
-		Comments: []Comment{
-			{
-				NickName: "lysu",
-				Content:  "dajiangyou",
-				Date:     t,
+func (b Blog) FirstComment() *Comment {
+	return b.Comments["0"]
+}
+
+func TestDoPatch(t *testing.T) {
+	assert := assert.New(t)
+	patcher := p.Patcher{}
+	b := &Blog{
+		Title:      "Blog title1",
+		CommentIds: []uint64{1, 3},
+		Comments: map[string]*Comment{
+			"0": {
+				NickName: "000",
+				Content:  "test",
+				Date:     time.Now(),
+			},
+			"1": {
+				NickName: "u1",
+				Content:  "test",
+				Date:     time.Now(),
+			},
+			"3": {
+				NickName: "tester",
+				Content:  "test hehe...",
+				Date:     time.Now(),
 			},
 		},
 	}
-}
-
-func toString(data interface{}) string {
-	d, err := json.Marshal(data)
-	if err != nil {
-		return ""
+	ps := p.Patch{
+		"title":                            "title B",
+		"commentIds[1]":                    uint64(4),
+		"firstComment().content":           "hehe~",
+		"comments[commentIds[0]].nickName": "私",
 	}
-	return string(d)
-}
-
-func TestPatchTopLevelString(t *testing.T) {
-	assert := assert.New(t)
-	p := patcher.Patcher{}
-	b := buildTestBlog()
-	ps := patcher.Patch{
-		patcher.Path("title"): "hehe 233",
-	}
-	p.PatchIt(b, ps)
-	assert.Equal("hehe 233", b.Title)
+	err := patcher.PatchIt(b, ps)
+	assert.NoError(err)
+	assert.Equal("title B", b.Title)
+	assert.Equal(uint64(4), b.CommentIds[1])
+	assert.Equal("私", b.Comments["1"].NickName)
+	assert.Equal("hehe~", b.FirstComment().Content)
 }

@@ -8,6 +8,9 @@ import (
 	"strings"
 )
 
+// NumberType patch api use this type to deserialize JSON request in Golang
+var NumberType = reflect.TypeOf(json.Number(""))
+
 type Value struct {
 	val reflect.Value
 }
