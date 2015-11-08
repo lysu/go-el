@@ -24,7 +24,7 @@ func (t T) Index(i int) S {
 
 func TestLocate(t *testing.T) {
 
-	p := patcher.Path("abc.Index(abc.Idx.2).Content")
+	p := patcher.Path("Index(Idx.2).Content")
 
 	data := T{
 		Idx: []int{1, 2, 3},

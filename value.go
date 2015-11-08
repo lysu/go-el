@@ -1,6 +1,7 @@
 package patcher
 
 import (
+	"encoding/json"
 	"fmt"
 	"reflect"
 	"strconv"
@@ -272,6 +273,56 @@ func (v *Value) String() string {
 func (v *Value) Interface() interface{} {
 	if v.val.IsValid() {
 		return v.val.Interface()
+	}
+	return nil
+}
+
+func (v *Value) SetValue(rightValue interface{}) error {
+
+	rvType := reflect.TypeOf(rightValue)
+
+	resolvedValue := v.getResolvedValue()
+
+	if rvType == NumberType {
+
+		nv := rightValue.(json.Number)
+
+		switch resolvedValue.Kind() {
+		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+			n, err := strconv.ParseInt(string(nv), 10, 64)
+			if err != nil || resolvedValue.OverflowInt(n) {
+				return fmt.Errorf("Can not use number %v as %s patch failure err: %v", rightValue, resolvedValue.Type(), err)
+			}
+			resolvedValue.SetInt(n)
+			return nil
+
+		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+			n, err := strconv.ParseUint(string(nv), 10, 64)
+			if err != nil || resolvedValue.OverflowUint(n) {
+				return fmt.Errorf("Can not use number %v as %s patch failure err: %v", rightValue, resolvedValue.Type(), err)
+			}
+			resolvedValue.SetUint(n)
+			return nil
+
+		case reflect.Float32, reflect.Float64:
+			n, err := strconv.ParseFloat(string(nv), resolvedValue.Type().Bits())
+			if err != nil || resolvedValue.OverflowFloat(n) {
+				return fmt.Errorf("Can not use number %v as %s patch failure err: %v", resolvedValue, resolvedValue.Type(), err)
+			}
+			resolvedValue.SetFloat(n)
+			return nil
+
+		default:
+			return fmt.Errorf("Can not use use value %v to patch %s type", resolvedValue, resolvedValue.Kind())
+		}
+	} else {
+		if rvType != resolvedValue.Type() {
+			return fmt.Errorf("Can not use use value %v to patch %s type", rvType, resolvedValue.Type())
+		}
+		if resolvedValue.CanSet() {
+			panic("121212")
+		}
+		resolvedValue.Set(reflect.ValueOf(rightValue))
 	}
 	return nil
 }

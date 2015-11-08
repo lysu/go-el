@@ -90,69 +90,62 @@ func (vr *variableResolver) String() string {
 }
 
 func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
-	var current reflect.Value
+	current := reflect.ValueOf(target)
 
-	for idx, part := range vr.parts {
-		if idx == 0 {
-			// We're looking up the first part of the variable.
-			current = reflect.ValueOf(target) // Get the initial value
-		} else {
-			// Next parts, resolve it from current
+	for _, part := range vr.parts {
+		// Before resolving the pointer, let's see if we have a method to call
+		// Problem with resolving the pointer is we're changing the receiver
+		isFunc := false
+		if part.typ == varTypeIdent {
+			funcValue := current.MethodByName(part.s)
+			if funcValue.IsValid() {
+				current = funcValue
+				isFunc = true
+			}
+		}
 
-			// Before resolving the pointer, let's see if we have a method to call
-			// Problem with resolving the pointer is we're changing the receiver
-			isFunc := false
-			if part.typ == varTypeIdent {
-				funcValue := current.MethodByName(part.s)
-				if funcValue.IsValid() {
-					current = funcValue
-					isFunc = true
+		if !isFunc {
+			// If current a pointer, resolve it
+			if current.Kind() == reflect.Ptr {
+				current = current.Elem()
+				if !current.IsValid() {
+					// Value is not valid (anymore)
+					return AsValue(nil), nil
 				}
 			}
 
-			if !isFunc {
-				// If current a pointer, resolve it
-				if current.Kind() == reflect.Ptr {
-					current = current.Elem()
-					if !current.IsValid() {
-						// Value is not valid (anymore)
-						return AsValue(nil), nil
-					}
-				}
-
-				// Look up which part must be called now
-				switch part.typ {
-				case varTypeInt:
-					// Calling an index is only possible for:
-					// * slices/arrays/strings
-					switch current.Kind() {
-					case reflect.String, reflect.Array, reflect.Slice:
-						if current.Len() > part.i {
-							current = current.Index(part.i)
-						} else {
-							return nil, fmt.Errorf("Index out of range: %d (variable %s)", part.i, vr.String())
-						}
-					default:
-						return nil, fmt.Errorf("Can't access an index on type %s (variable %s)",
-							current.Kind().String(), vr.String())
-					}
-				case varTypeIdent:
-					// debugging:
-					// fmt.Printf("now = %s (kind: %s)\n", part.s, current.Kind().String())
-
-					// Calling a field or key
-					switch current.Kind() {
-					case reflect.Struct:
-						current = current.FieldByName(part.s)
-					case reflect.Map:
-						current = current.MapIndex(reflect.ValueOf(part.s))
-					default:
-						return nil, fmt.Errorf("Can't access a field by name on type %s (variable %s)",
-							current.Kind().String(), vr.String())
+			// Look up which part must be called now
+			switch part.typ {
+			case varTypeInt:
+				// Calling an index is only possible for:
+				// * slices/arrays/strings
+				switch current.Kind() {
+				case reflect.String, reflect.Array, reflect.Slice:
+					if current.Len() > part.i {
+						current = current.Index(part.i)
+					} else {
+						return nil, fmt.Errorf("Index out of range: %d (variable %s)", part.i, vr.String())
 					}
 				default:
-					panic("unimplemented")
+					return nil, fmt.Errorf("Can't access an index on type %s (variable %s)",
+						current.Kind().String(), vr.String())
 				}
+			case varTypeIdent:
+				// debugging:
+				// fmt.Printf("now = %s (kind: %s)\n", part.s, current.Kind().String())
+
+				// Calling a field or key
+				switch current.Kind() {
+				case reflect.Struct:
+					current = current.FieldByName(part.s)
+				case reflect.Map:
+					current = current.MapIndex(reflect.ValueOf(part.s))
+				default:
+					return nil, fmt.Errorf("Can't access a field by name on type %s (variable %s)",
+						current.Kind().String(), vr.String())
+				}
+			default:
+				panic("unimplemented")
 			}
 		}
 
