@@ -154,7 +154,7 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 			return AsValue(nil), nil
 		}
 
-		// If current is a reflect.ValueOf(pongo2.Value), then unpack it
+		// If current is a reflect.ValueOf(Value), then unpack it
 		// Happens in function calls (as a return value) or by injecting
 		// into the execution context (e.g. in a for-loop)
 		if current.Type() == reflect.TypeOf(&Value{}) {
@@ -165,6 +165,32 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 		// Check whether this is an interface and resolve it where required
 		if current.Kind() == reflect.Interface {
 			current = reflect.ValueOf(current.Interface())
+		}
+
+		// Handle index call
+		if part.isIndexCall {
+
+			if current.Kind() != reflect.String && current.Kind() != reflect.Array && current.Kind() != reflect.Slice && current.Kind() != reflect.Map {
+				return nil, fmt.Errorf("'%s' can not be index access (it is %s)", vr.String(), current.Kind().String())
+			}
+
+			pv, err := part.indexArg.Evaluate(target)
+			if err != nil {
+				return nil, err
+			}
+
+			switch current.Kind() {
+			case reflect.String, reflect.Array, reflect.Slice:
+				if current.Len() > part.i {
+					current = current.Index(pv.Integer())
+				} else {
+					return nil, fmt.Errorf("Index out of range: %d (variable %s)", pv.Integer(), vr.String())
+				}
+			default:
+				return nil, fmt.Errorf("Can't access an index on type %s (variable %s)",
+					current.Kind().String(), vr.String())
+			}
+
 		}
 
 		// Check if the part is a function call
@@ -214,24 +240,24 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 				}
 
 				if fnArg != reflect.TypeOf(new(Value)) {
-					// Function's argument is not a *pongo2.Value, then we have to check whether input argument is of the same type as the function's argument
+					// Function's argument is not a *Value, then we have to check whether input argument is of the same type as the function's argument
 					if !isVariadic {
 						if fnArg != reflect.TypeOf(pv.Interface()) && fnArg.Kind() != reflect.Interface {
-							return nil, fmt.Errorf("Function input argument %d of '%s' must be of type %s or *pongo2.Value (not %T).",
+							return nil, fmt.Errorf("Function input argument %d of '%s' must be of type %s or *Value (not %T).",
 								idx, vr.String(), fnArg.String(), pv.Interface())
 						}
 						// Function's argument has another type, using the interface-value
 						parameters = append(parameters, reflect.ValueOf(pv.Interface()))
 					} else {
 						if fnArg != reflect.TypeOf(pv.Interface()) && fnArg.Kind() != reflect.Interface {
-							return nil, fmt.Errorf("Function variadic input argument of '%s' must be of type %s or *pongo2.Value (not %T).",
+							return nil, fmt.Errorf("Function variadic input argument of '%s' must be of type %s or *Value (not %T).",
 								vr.String(), fnArg.String(), pv.Interface())
 						}
 						// Function's argument has another type, using the interface-value
 						parameters = append(parameters, reflect.ValueOf(pv.Interface()))
 					}
 				} else {
-					// Function's argument is a *pongo2.Value
+					// Function's argument is a *Value
 					parameters = append(parameters, reflect.ValueOf(pv))
 				}
 			}
@@ -272,7 +298,9 @@ type variablePart struct {
 	s   string
 	i   int
 
+	isIndexCall    bool
 	isFunctionCall bool
+	indexArg       functionCallArgument
 	callingArgs    []functionCallArgument // needed for a function call, represents all argument nodes (INode supports nested function calls)
 }
 
@@ -417,6 +445,24 @@ variableLoop:
 
 			}
 			// We're done parsing the function call, next variable part
+			continue variableLoop
+		} else if p.Match(TokenSymbol, "[") != nil {
+			part := resolver.parts[len(resolver.parts)-1]
+			part.isIndexCall = true
+			if p.Remaining() == 0 {
+				return nil, p.Error("Unexpected EOF, expected index call expression.", p.lastToken)
+			}
+			if p.Peek(TokenSymbol, "]") != nil {
+				return nil, p.Error("Unexpected ], expected index argument.", p.lastToken)
+			}
+			exprArg, err := p.ParseExp()
+			if err != nil {
+				return nil, err
+			}
+			part.indexArg = exprArg
+			if p.Match(TokenSymbol, "]") == nil {
+				return nil, p.Error("Miss [ for index argument call.", p.lastToken)
+			}
 			continue variableLoop
 		}
 
