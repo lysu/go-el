@@ -4,23 +4,16 @@ import (
 	"fmt"
 	"reflect"
 	"strconv"
+	"strings"
 )
 
 type Value struct {
-	val  reflect.Value
-	safe bool // used to indicate whether a Value needs explicit escaping in the template
+	val reflect.Value
 }
 
 func AsValue(i interface{}) *Value {
 	return &Value{
 		val: reflect.ValueOf(i),
-	}
-}
-
-func AsSafeValue(i interface{}) *Value {
-	return &Value{
-		val:  reflect.ValueOf(i),
-		safe: true,
 	}
 }
 
@@ -197,6 +190,55 @@ func (v *Value) Index(i int) *Value {
 	default:
 		return AsValue([]int{})
 	}
+}
+
+func (v *Value) Contains(other *Value) bool {
+	switch v.getResolvedValue().Kind() {
+	case reflect.Struct:
+		fieldValue := v.getResolvedValue().FieldByName(other.String())
+		return fieldValue.IsValid()
+	case reflect.Map:
+		var mapValue reflect.Value
+		switch other.Interface().(type) {
+		case int:
+			mapValue = v.getResolvedValue().MapIndex(other.getResolvedValue())
+		case string:
+			mapValue = v.getResolvedValue().MapIndex(other.getResolvedValue())
+		default:
+			return false
+		}
+
+		return mapValue.IsValid()
+	case reflect.String:
+		return strings.Contains(v.getResolvedValue().String(), other.String())
+
+	case reflect.Slice, reflect.Array:
+		for i := 0; i < v.getResolvedValue().Len(); i++ {
+			item := v.getResolvedValue().Index(i)
+			if other.Interface() == item.Interface() {
+				return true
+			}
+		}
+		return false
+
+	default:
+		return false
+	}
+}
+
+func (v *Value) CanSlice() bool {
+	switch v.getResolvedValue().Kind() {
+	case reflect.Array, reflect.Slice, reflect.String:
+		return true
+	}
+	return false
+}
+
+func (v *Value) EqualValueTo(other *Value) bool {
+	if v.IsInteger() && other.IsInteger() {
+		return v.Integer() == other.Integer()
+	}
+	return v.Interface() == other.Interface()
 }
 
 func (v *Value) String() string {

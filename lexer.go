@@ -23,32 +23,10 @@ var (
 	tokenIdentifierCharsWithDigits = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ_0123456789"
 	tokenDigits                    = "0123456789"
 
-	TokenSymbols = []string{";", "(", ")", "."}
+	TokenSymbols = []string{";", "(", ")", ".", "[", "]"}
 
 	TokenKeywords = []string{"true", "false"}
 )
-
-type Error struct {
-	Expression string
-	Line       int
-	Column     int
-	Token      *Token
-	ErrorMsg   string
-}
-
-// Returns a nice formatted error string.
-func (e *Error) Error() string {
-	s := "[Error"
-	if e.Line > 0 {
-		s += fmt.Sprintf(" | Line %d Col %d", e.Line, e.Column)
-		if e.Token != nil {
-			s += fmt.Sprintf(" near '%s'", e.Token.Val)
-		}
-	}
-	s += "] "
-	s += e.ErrorMsg
-	return s
-}
 
 type TokenType int
 type Token struct {

@@ -7,59 +7,19 @@ import (
 	"strings"
 )
 
-type Context map[string]interface{}
-
-type ExecutionContext struct {
-	Public  Context
-	Private Context
-	Shared  Context
-}
-
-func NewExecutionContext(ctx Context) *ExecutionContext {
-	return &ExecutionContext{
-		Public:  ctx,
-		Private: Context{},
-	}
-}
-
-func (ctx *ExecutionContext) Error(msg string, token *Token) *Error {
-	var line, col int
-	if token != nil {
-		// No tokens available
-		// TODO: Add location (from where?)
-		line = token.Line
-		col = token.Col
-	}
-	return &Error{
-		Line:     line,
-		Column:   col,
-		Token:    token,
-		ErrorMsg: msg,
-	}
-}
+const (
+	varTypeInt = iota
+	varTypeIdent
+)
 
 type INode interface {
-	Execute(*ExecutionContext) *Error
+	Execute(target interface{}) *Error
 }
 
 type IEvaluator interface {
 	INode
 	GetPositionToken() *Token
-	Evaluate(*ExecutionContext) (*Value, *Error)
-}
-
-type nodeVariable struct {
-	locationToken *Token
-	expr          IEvaluator
-}
-
-func (nv *nodeVariable) Execute(ctx *ExecutionContext) *Error {
-	value, err := nv.expr.Evaluate(ctx)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s-------\n", value.String())
-	return nil
+	Evaluate(target interface{}) (*Value, *Error)
 }
 
 type intResolver struct {
@@ -67,8 +27,8 @@ type intResolver struct {
 	val           int
 }
 
-func (i *intResolver) Execute(ctx *ExecutionContext) *Error {
-	value, err := i.Evaluate(ctx)
+func (i *intResolver) Execute(target interface{}) *Error {
+	value, err := i.Evaluate(target)
 	if err != nil {
 		return err
 	}
@@ -76,7 +36,7 @@ func (i *intResolver) Execute(ctx *ExecutionContext) *Error {
 	return nil
 }
 
-func (i *intResolver) Evaluate(ctx *ExecutionContext) (*Value, *Error) {
+func (i *intResolver) Evaluate(target interface{}) (*Value, *Error) {
 	return AsValue(i.val), nil
 }
 
@@ -89,8 +49,8 @@ type stringResolver struct {
 	val           string
 }
 
-func (s *stringResolver) Execute(ctx *ExecutionContext) *Error {
-	value, err := s.Evaluate(ctx)
+func (s *stringResolver) Execute(target interface{}) *Error {
+	value, err := s.Evaluate(target)
 	if err != nil {
 		return err
 	}
@@ -98,7 +58,7 @@ func (s *stringResolver) Execute(ctx *ExecutionContext) *Error {
 	return nil
 }
 
-func (s *stringResolver) Evaluate(ctx *ExecutionContext) (*Value, *Error) {
+func (s *stringResolver) Evaluate(target interface{}) (*Value, *Error) {
 	return AsValue(s.val), nil
 }
 
@@ -111,8 +71,8 @@ type boolResolver struct {
 	val           bool
 }
 
-func (b *boolResolver) Execute(ctx *ExecutionContext) *Error {
-	value, err := b.Evaluate(ctx)
+func (b *boolResolver) Execute(target interface{}) *Error {
+	value, err := b.Evaluate(target)
 	if err != nil {
 		return err
 	}
@@ -120,7 +80,7 @@ func (b *boolResolver) Execute(ctx *ExecutionContext) *Error {
 	return nil
 }
 
-func (b *boolResolver) Evaluate(ctx *ExecutionContext) (*Value, *Error) {
+func (b *boolResolver) Evaluate(target interface{}) (*Value, *Error) {
 	return AsValue(b.val), nil
 }
 
@@ -135,11 +95,11 @@ type variableResolver struct {
 }
 
 type functionCallArgument interface {
-	Evaluate(*ExecutionContext) (*Value, *Error)
+	Evaluate(target interface{}) (*Value, *Error)
 }
 
-func (vr *variableResolver) Execute(ctx *ExecutionContext) *Error {
-	value, err := vr.Evaluate(ctx)
+func (vr *variableResolver) Execute(target interface{}) *Error {
+	value, err := vr.Evaluate(target)
 	if err != nil {
 		return err
 	}
@@ -147,10 +107,10 @@ func (vr *variableResolver) Execute(ctx *ExecutionContext) *Error {
 	return nil
 }
 
-func (vr *variableResolver) Evaluate(ctx *ExecutionContext) (*Value, *Error) {
-	value, err := vr.resolve(ctx)
+func (vr *variableResolver) Evaluate(target interface{}) (*Value, *Error) {
+	value, err := vr.resolve(target)
 	if err != nil {
-		return AsValue(nil), ctx.Error(err.Error(), vr.locationToken)
+		return AsValue(nil), NewError(err.Error(), vr.locationToken)
 	}
 	return value, nil
 }
@@ -170,21 +130,13 @@ func (vr *variableResolver) String() string {
 	return strings.Join(parts, ".")
 }
 
-func (vr *variableResolver) resolve(ctx *ExecutionContext) (*Value, error) {
+func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 	var current reflect.Value
-	var isSafe bool
 
 	for idx, part := range vr.parts {
 		if idx == 0 {
 			// We're looking up the first part of the variable.
-			// First we're having a look in our private
-			// context (e. g. information provided by tags, like the forloop)
-			val, inPrivate := ctx.Private[vr.parts[0].s]
-			if !inPrivate {
-				// Nothing found? Then have a final lookup in the public context
-				val = ctx.Public[vr.parts[0].s]
-			}
-			current = reflect.ValueOf(val) // Get the initial value
+			current = reflect.ValueOf(target) // Get the initial value
 		} else {
 			// Next parts, resolve it from current
 
@@ -256,7 +208,6 @@ func (vr *variableResolver) resolve(ctx *ExecutionContext) (*Value, error) {
 		if current.Type() == reflect.TypeOf(&Value{}) {
 			tmpValue := current.Interface().(*Value)
 			current = tmpValue.val
-			isSafe = tmpValue.safe
 		}
 
 		// Check whether this is an interface and resolve it where required
@@ -295,7 +246,7 @@ func (vr *variableResolver) resolve(ctx *ExecutionContext) (*Value, error) {
 			var fnArg reflect.Type
 
 			for idx, arg := range part.callingArgs {
-				pv, err := arg.Evaluate(ctx)
+				pv, err := arg.Evaluate(target)
 				if err != nil {
 					return nil, err
 				}
@@ -348,7 +299,6 @@ func (vr *variableResolver) resolve(ctx *ExecutionContext) (*Value, error) {
 			} else {
 				// Return the function call value
 				current = rv.Interface().(*Value).val
-				isSafe = rv.Interface().(*Value).safe
 			}
 		}
 	}
@@ -358,17 +308,12 @@ func (vr *variableResolver) resolve(ctx *ExecutionContext) (*Value, error) {
 		return AsValue(nil), nil
 	}
 
-	return &Value{val: current, safe: isSafe}, nil
+	return &Value{val: current}, nil
 }
 
 func (vr *variableResolver) GetPositionToken() *Token {
 	return vr.locationToken
 }
-
-const (
-	varTypeInt = iota
-	varTypeIdent
-)
 
 type variablePart struct {
 	typ int
@@ -377,20 +322,6 @@ type variablePart struct {
 
 	isFunctionCall bool
 	callingArgs    []functionCallArgument // needed for a function call, represents all argument nodes (INode supports nested function calls)
-}
-
-func (p *Parser) ParseVar() (INode, *Error) {
-	node := &nodeVariable{
-		locationToken: p.Current(),
-	}
-
-	expr, err := p.ParseExp()
-	if err != nil {
-		return nil, err
-	}
-	node.expr = expr
-
-	return node, nil
 }
 
 func (p *Parser) ParseExp() (IEvaluator, *Error) {
