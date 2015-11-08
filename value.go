@@ -319,8 +319,8 @@ func (v *Value) SetValue(rightValue interface{}) error {
 		if rvType != resolvedValue.Type() {
 			return fmt.Errorf("Can not use use value %v to patch %s type", rvType, resolvedValue.Type())
 		}
-		if resolvedValue.CanSet() {
-			panic("121212")
+		if !resolvedValue.CanSet() {
+			return fmt.Errorf("Var %#v is not settable", v.val)
 		}
 		resolvedValue.Set(reflect.ValueOf(rightValue))
 	}
