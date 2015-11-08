@@ -25,7 +25,7 @@ func (t User) FindImage(i int) *Image {
 func TestLocate(t *testing.T) {
 
 	data := User{
-		Name:      "ほ",
+		Name:      "ほん",
 		ImgIDList: []int{0, 1, 2},
 		Images:    []*Image{{"1.jpg"}, {"2.jpg"}, {"3.jpg"}},
 	}
@@ -38,7 +38,7 @@ func TestLocate(t *testing.T) {
 	assert.Equal(t, "zzzz", data.Name)
 
 	v, err = patcher.Locate(&data, patcher.Path("ImgIDList.0"))
-	assert.NoError(t, err)ん
+	assert.NoError(t, err)
 	err = v.SetValue(json.Number("9"))
 	assert.NoError(t, err)
 
