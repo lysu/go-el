@@ -31,9 +31,11 @@ func TestLocate(t *testing.T) {
 		B:   "Yue",
 	}
 
-	_, err := patcher.Locate(data, p)
+	v, err := patcher.Locate(data, p)
 	if err != nil {
 		panic(err)
 	}
+
+	fmt.Printf("%s-------\n", v.String())
 
 }

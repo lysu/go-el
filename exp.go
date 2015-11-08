@@ -12,12 +12,7 @@ const (
 	varTypeIdent
 )
 
-type INode interface {
-	Execute(target interface{}) *Error
-}
-
 type IEvaluator interface {
-	INode
 	GetPositionToken() *Token
 	Evaluate(target interface{}) (*Value, *Error)
 }
@@ -25,15 +20,6 @@ type IEvaluator interface {
 type intResolver struct {
 	locationToken *Token
 	val           int
-}
-
-func (i *intResolver) Execute(target interface{}) *Error {
-	value, err := i.Evaluate(target)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s-------\n", value.String())
-	return nil
 }
 
 func (i *intResolver) Evaluate(target interface{}) (*Value, *Error) {
@@ -49,15 +35,6 @@ type stringResolver struct {
 	val           string
 }
 
-func (s *stringResolver) Execute(target interface{}) *Error {
-	value, err := s.Evaluate(target)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s-------\n", value.String())
-	return nil
-}
-
 func (s *stringResolver) Evaluate(target interface{}) (*Value, *Error) {
 	return AsValue(s.val), nil
 }
@@ -69,15 +46,6 @@ func (s *stringResolver) GetPositionToken() *Token {
 type boolResolver struct {
 	locationToken *Token
 	val           bool
-}
-
-func (b *boolResolver) Execute(target interface{}) *Error {
-	value, err := b.Evaluate(target)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s-------\n", value.String())
-	return nil
 }
 
 func (b *boolResolver) Evaluate(target interface{}) (*Value, *Error) {
@@ -96,15 +64,6 @@ type variableResolver struct {
 
 type functionCallArgument interface {
 	Evaluate(target interface{}) (*Value, *Error)
-}
-
-func (vr *variableResolver) Execute(target interface{}) *Error {
-	value, err := vr.Evaluate(target)
-	if err != nil {
-		return err
-	}
-	fmt.Printf("%s-------\n", value.String())
-	return nil
 }
 
 func (vr *variableResolver) Evaluate(target interface{}) (*Value, *Error) {

@@ -1,8 +1,5 @@
 package patcher
 
-const ContextKey = "t"
-const DotSymbol = "."
-
 func Locate(target interface{}, path Path) (*Value, error) {
 
 	toks, err := Lex(string(path))
@@ -17,12 +14,12 @@ func Locate(target interface{}, path Path) (*Value, error) {
 		return nil, err
 	}
 
-	err = exp.Execute(target)
+	value, err := exp.Evaluate(target)
 
 	if err != nil {
 		return nil, err
 	}
 
-	return nil, nil
+	return value, nil
 
 }
