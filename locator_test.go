@@ -6,12 +6,14 @@ import (
 	"encoding/json"
 	"github.com/lysu/go-struct-patcher"
 	"github.com/stretchr/testify/assert"
+	"strconv"
 )
 
 type User struct {
 	Name      string
 	ImgIDList []int
 	Images    []*Image
+	ImgIdx    map[string]*Image
 }
 
 type Image struct {
@@ -22,17 +24,25 @@ func (t User) FindImage(i int) *Image {
 	return t.Images[i]
 }
 
+func (t User) LocateImage(i int) *Image {
+	return t.ImgIdx[strconv.Itoa(i)]
+}
+
 func TestLocate(t *testing.T) {
 
 	data := User{
 		Name:      "ほん",
 		ImgIDList: []int{0, 1, 2},
 		Images:    []*Image{{"1.jpg"}, {"2.jpg"}, {"3.jpg"}},
+		ImgIdx:    map[string]*Image{
+			"0": &Image{"1.jpg"},
+			"1": &Image{"2.jpg"},
+			"2": &Image{"3.jpg"},
+		},
 	}
 
 	v, err := patcher.Locate(&data, patcher.Path("Name"))
 	assert.NoError(t, err)
-
 	err = v.SetValue("zzzz")
 	assert.NoError(t, err)
 	assert.Equal(t, "zzzz", data.Name)
@@ -46,9 +56,14 @@ func TestLocate(t *testing.T) {
 
 	v, err = patcher.Locate(&data, patcher.Path("FindImage(ImgIDList.1).Content"))
 	assert.NoError(t, err)
-
 	err = v.SetValue("なに")
 	assert.NoError(t, err)
 	assert.Equal(t, "なに", data.Images[1].Content)
+
+	v, err = patcher.Locate(&data, patcher.Path("LocateImage(ImgIDList.2).Content"))
+	assert.NoError(t, err)
+	err = v.SetValue("なん")
+	assert.NoError(t, err)
+	assert.Equal(t, "なん", data.ImgIdx["2"].Content)
 
 }
