@@ -1,10 +1,10 @@
-package patcher_test
+package el_test
 
 import (
 	"testing"
 
 	"encoding/json"
-	"github.com/lysu/go-struct-patcher"
+	"github.com/lysu/go-el"
 	"github.com/stretchr/testify/assert"
 	"strconv"
 )
@@ -42,23 +42,27 @@ func TestLocate(t *testing.T) {
 		},
 	}
 
-	v, err := patcher.Locate(&data, patcher.Path("Name"))
+	exp := el.Expression("Name")
+	v, err := exp.Execute(&data)
 	assert.NoError(t, err)
 	err = v.SetValue("zzzz")
 	assert.NoError(t, err)
 	assert.Equal(t, "zzzz", data.Name)
 
-	v, err = patcher.Locate(&data, patcher.Path("ImgIDList.0"))
+	exp = el.Expression("ImgIDList.0")
+	v, err = exp.Execute(&data)
 	assert.NoError(t, err)
 	err = v.SetValue(json.Number("9"))
 	assert.NoError(t, err)
 	assert.Equal(t, 9, data.ImgIDList[0])
 
-	v, err = patcher.Locate(&data, patcher.Path("ImgIDList[0]"))
+	exp = el.Expression("ImgIDList[0]")
+	v, err = exp.Execute(&data)
 	assert.NoError(t, err)
 	assert.Equal(t, 9, data.ImgIDList[0])
 
-	v, err = patcher.Locate(&data, patcher.Path("Images[ImgIDList[2]].Content"))
+	exp = el.Expression("Images[ImgIDList[2]].Content")
+	v, err = exp.Execute(&data)
 	assert.NoError(t, err)
 	err = v.SetValue("しゃ")
 	assert.NoError(t, err)
@@ -79,13 +83,15 @@ func TestFunctionCall(t *testing.T) {
 		},
 	}
 
-	v, err := patcher.Locate(&data, patcher.Path("FindImage(ImgIDList.1).Content"))
+	exp := el.Expression("FindImage(ImgIDList.1).Content")
+	v, err := exp.Execute(&data)
 	assert.NoError(t, err)
 	err = v.SetValue("なに")
 	assert.NoError(t, err)
 	assert.Equal(t, "なに", data.Images[1].Content)
 
-	v, err = patcher.Locate(&data, patcher.Path("LocateImage(ImgIDList.2).Content"))
+	exp = el.Expression("LocateImage(ImgIDList.2).Content")
+	v, err = exp.Execute(&data)
 	assert.NoError(t, err)
 	err = v.SetValue("なん")
 	assert.NoError(t, err)
@@ -106,21 +112,24 @@ func TestIndexAccess(t *testing.T) {
 		},
 	}
 
-	v, err := patcher.Locate(&user, patcher.Path("ImgIDList[2]"))
+	exp := el.Expression("ImgIDList[2]")
+	v, err := exp.Execute(&user)
 	assert.NoError(t, err)
 	assert.Equal(t, 2, v.Integer())
 	err = v.SetValue(7)
 	assert.NoError(t, err)
 	assert.Equal(t, 7, user.ImgIDList[2])
 
-	v, err = patcher.Locate(&user, patcher.Path("ImgIdx[2].Content"))
+	exp = el.Expression("ImgIdx[2].Content")
+	v, err = exp.Execute(&user)
 	assert.NoError(t, err)
 	assert.Equal(t, "しゃしん3.jpg", v.String())
 	err = v.SetValue("しゃしん4.jpg")
 	assert.NoError(t, err)
 	assert.Equal(t, "しゃしん4.jpg", user.ImgIdx["2"].Content)
 
-	v, err = patcher.Locate(&user, patcher.Path("ImgIdx[ImgIDList[0]].Content"))
+	exp = el.Expression("ImgIdx[ImgIDList[0]].Content")
+	v, err = exp.Execute(&user)
 	assert.NoError(t, err)
 	assert.Equal(t, "しゃしん１.jpg", v.String())
 	err = v.SetValue("しゃしん233.jpg")
@@ -141,13 +150,15 @@ func TestIndexSet(t *testing.T) {
 		},
 		BizState: map[string]int{},
 	}
-	v, err := patcher.Locate(&user, patcher.Path("BizState[3]"))
+	exp := el.Expression("BizState[3]")
+	v, err := exp.Execute(&user)
 	assert.NoError(t, err)
 	assert.True(t, v.IsNil())
 	err = v.SetValue(3)
 	assert.NoError(t, err)
 	assert.Equal(t, 3, user.BizState["3"])
 
-	v, err = patcher.Locate(&user, patcher.Path("ImgIDList[99]"))
+	exp = el.Expression("ImgIDList[99]")
+	v, err = exp.Execute(&user)
 	assert.NotNil(t, err)
 }

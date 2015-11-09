@@ -1,1 +1,3 @@
-# go-struct-patcher
+# go-el
+
+expression language to Golang structure data

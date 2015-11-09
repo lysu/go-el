@@ -1,4 +1,4 @@
-package patcher
+package el
 
 type Parser struct {
 	idx       int

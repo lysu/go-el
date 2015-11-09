@@ -1,14 +1,7 @@
-package patcher
-
-import (
-	"strings"
-)
-
-// Path to Patch
-type Path string
+package el
 
 // Patch contains a group path and value
-type Patch map[Path]interface{}
+type Patch map[Expression]interface{}
 
 // Patcher use to patch in memory struct with path
 type Patcher struct{}
@@ -18,7 +11,7 @@ func (p *Patcher) PatchIt(target interface{}, patch Patch) error {
 
 	for path, value := range patch {
 
-		targetValue, err := Locate(target, path)
+		targetValue, err := path.Execute(target)
 		if err != nil {
 			return err
 		}
@@ -31,12 +24,4 @@ func (p *Patcher) PatchIt(target interface{}, patch Patch) error {
 	}
 
 	return nil
-}
-
-func (p Path) FirstPart() string {
-	idx := strings.Index(string(p), ".")
-	if idx == -1 {
-		return ""
-	}
-	return upperFirst(string(p)[:idx])
 }

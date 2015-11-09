@@ -1,10 +1,10 @@
-package patcher_test
+package el_test
 
 import (
 	"testing"
 	"time"
 
-	p "github.com/lysu/go-struct-patcher"
+	p "github.com/lysu/go-el"
 	"github.com/stretchr/testify/assert"
 )
 

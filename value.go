@@ -1,4 +1,4 @@
-package patcher
+package el
 
 import (
 	"encoding/json"
