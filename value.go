@@ -297,45 +297,115 @@ func (v *Value) Interface() interface{} {
 	return nil
 }
 
+func (v *Value) SetNumber(nv json.Number) error {
+	resolvedValue := v.getResolvedValue()
+	switch resolvedValue.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, err := strconv.ParseInt(string(nv), 10, 64)
+		if err != nil || resolvedValue.OverflowInt(n) {
+			return fmt.Errorf("Can not use number %v as %s patch failure err: %v", nv, resolvedValue.Type(), err)
+		}
+		resolvedValue.SetInt(n)
+		return nil
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		n, err := strconv.ParseUint(string(nv), 10, 64)
+		if err != nil || resolvedValue.OverflowUint(n) {
+			return fmt.Errorf("Can not use number %v as %s patch failure err: %v", nv, resolvedValue.Type(), err)
+		}
+		resolvedValue.SetUint(n)
+		return nil
+
+	case reflect.Float32, reflect.Float64:
+		n, err := strconv.ParseFloat(string(nv), resolvedValue.Type().Bits())
+		if err != nil || resolvedValue.OverflowFloat(n) {
+			return fmt.Errorf("Can not use number %v as %s patch failure err: %v", resolvedValue, resolvedValue.Type(), err)
+		}
+		resolvedValue.SetFloat(n)
+		return nil
+
+	default:
+		return fmt.Errorf("Can not use use value %v to patch %s type", resolvedValue, resolvedValue.Kind())
+	}
+	return nil
+}
+
+func (v *Value) ToRealNumber(nv json.Number, valueType reflect.Type) interface{} {
+	switch valueType.Kind() {
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		n, err := strconv.ParseInt(string(nv), 10, 64)
+		if err != nil {
+			return fmt.Errorf("Can not use number %v as %s patch failure err: %v", nv, valueType, err)
+		}
+		switch k := valueType.Kind(); k {
+		default:
+			panic(&reflect.ValueError{"Transform to int failure, err: %v", valueType.Kind()})
+		case reflect.Int:
+			return int(n)
+		case reflect.Int8:
+			return int8(n)
+		case reflect.Int16:
+			return int16(n)
+		case reflect.Int32:
+			return int32(n)
+		case reflect.Int64:
+			return n
+		}
+		return n
+
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		n, err := strconv.ParseUint(string(nv), 10, 64)
+		if err != nil {
+			return fmt.Errorf("Can not use number %v as %s patch failure err: %v", nv, valueType, err)
+		}
+		switch k := valueType.Kind(); k {
+		default:
+			panic(&reflect.ValueError{"Transform to uint failure, err: %v", valueType.Kind()})
+		case reflect.Uint:
+			return uint(n)
+		case reflect.Uint8:
+			return uint8(n)
+		case reflect.Uint16:
+			return uint16(n)
+		case reflect.Uint32:
+			return uint32(n)
+		case reflect.Uint64:
+			return n
+		case reflect.Uintptr:
+			return uintptr(n)
+		}
+		return n
+
+	case reflect.Float32, reflect.Float64:
+		n, err := strconv.ParseFloat(string(nv), valueType.Bits())
+		if err != nil {
+			return fmt.Errorf("Can not use number %v as %s patch failure err: %v", valueType, valueType, err)
+		}
+		switch k := valueType.Kind(); k {
+		default:
+			panic(&reflect.ValueError{"Transform to float failure, err: %v", valueType.Kind()})
+		case reflect.Float32:
+			return int32(n)
+		case reflect.Float64:
+			return n
+		}
+		return n
+
+	default:
+		return fmt.Errorf("Can not use use value %v to patch %s type", valueType, valueType.Kind())
+	}
+	return nil
+}
+
 func (v *Value) SetValue(rightValue interface{}) error {
 
 	rvType := reflect.TypeOf(rightValue)
 
 	resolvedValue := v.getResolvedValue()
 
-	if rvType == NumberType {
-
+	if rvType == NumberType && !v.IsKeySetter() {
 		nv := rightValue.(json.Number)
-
-		switch resolvedValue.Kind() {
-		case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
-			n, err := strconv.ParseInt(string(nv), 10, 64)
-			if err != nil || resolvedValue.OverflowInt(n) {
-				return fmt.Errorf("Can not use number %v as %s patch failure err: %v", rightValue, resolvedValue.Type(), err)
-			}
-			resolvedValue.SetInt(n)
-			return nil
-
-		case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
-			n, err := strconv.ParseUint(string(nv), 10, 64)
-			if err != nil || resolvedValue.OverflowUint(n) {
-				return fmt.Errorf("Can not use number %v as %s patch failure err: %v", rightValue, resolvedValue.Type(), err)
-			}
-			resolvedValue.SetUint(n)
-			return nil
-
-		case reflect.Float32, reflect.Float64:
-			n, err := strconv.ParseFloat(string(nv), resolvedValue.Type().Bits())
-			if err != nil || resolvedValue.OverflowFloat(n) {
-				return fmt.Errorf("Can not use number %v as %s patch failure err: %v", resolvedValue, resolvedValue.Type(), err)
-			}
-			resolvedValue.SetFloat(n)
-			return nil
-
-		default:
-			return fmt.Errorf("Can not use use value %v to patch %s type", resolvedValue, resolvedValue.Kind())
-		}
-		return nil
+		return v.SetNumber(nv)
 	}
 
 	if v.IsKeySetter() {
@@ -343,6 +413,10 @@ func (v *Value) SetValue(rightValue interface{}) error {
 		target := setter.prev.getResolvedValue()
 		switch target.Kind() {
 		case reflect.Map:
+			if rvType == NumberType {
+				nv := rightValue.(json.Number)
+				rightValue = v.ToRealNumber(nv, target.Type().Elem())
+			}
 			target.SetMapIndex(setter.key, reflect.ValueOf(rightValue))
 			return nil
 		}
