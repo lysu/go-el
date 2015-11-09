@@ -184,7 +184,8 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 
 			switch current.Kind() {
 			case reflect.String, reflect.Array, reflect.Slice:
-				if current.Len() > part.i {
+				currentLen := current.Len()
+				if currentLen > pv.Integer() {
 					current = current.Index(pv.Integer())
 				} else {
 					return nil, fmt.Errorf("Index out of range: %d (variable %s)", pv.Integer(), vr.String())

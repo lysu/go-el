@@ -149,9 +149,5 @@ func TestIndexSet(t *testing.T) {
 	assert.Equal(t, 3, user.BizState["3"])
 
 	v, err = patcher.Locate(&user, patcher.Path("ImgIDList[99]"))
-	assert.NoError(t, err)
-	assert.True(t, v.IsNil())
-	err = v.SetValue(99)
-	assert.NoError(t, err)
-	assert.Equal(t, 3, user.ImgIDList[99])
+	assert.NotNil(t, err)
 }
