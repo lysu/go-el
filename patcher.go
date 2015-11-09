@@ -1,5 +1,9 @@
 package patcher
 
+import (
+	"strings"
+)
+
 // Path to Patch
 type Path string
 
@@ -27,4 +31,12 @@ func (p *Patcher) PatchIt(target interface{}, patch Patch) error {
 	}
 
 	return nil
+}
+
+func (p Path) FirstPart() string {
+	idx := strings.Index(string(p), ".")
+	if idx == -1 {
+		return ""
+	}
+	return upperFirst(string(p)[:idx])
 }
