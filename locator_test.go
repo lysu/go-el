@@ -11,6 +11,7 @@ import (
 
 type User struct {
 	Name      string
+	BizState  map[string]int
 	ImgIDList []int
 	Images    []*Image
 	ImgIdx    map[string]*Image
@@ -126,4 +127,31 @@ func TestIndexAccess(t *testing.T) {
 	assert.NoError(t, err)
 	assert.Equal(t, "しゃしん233.jpg", user.ImgIdx["0"].Content)
 
+}
+
+func TestIndexSet(t *testing.T) {
+	user := User{
+		Name:      "ほん",
+		ImgIDList: []int{0, 1, 2},
+		Images:    []*Image{{"1.jpg"}, {"2.jpg"}, {"3.jpg"}},
+		ImgIdx: map[string]*Image{
+			"0": {"しゃしん１.jpg"},
+			"1": {"しゃしん2.jpg"},
+			"2": {"しゃしん3.jpg"},
+		},
+		BizState: map[string]int{},
+	}
+	v, err := patcher.Locate(&user, patcher.Path("BizState[3]"))
+	assert.NoError(t, err)
+	assert.True(t, v.IsNil())
+	err = v.SetValue(3)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, user.BizState["3"])
+
+	v, err = patcher.Locate(&user, patcher.Path("ImgIDList[99]"))
+	assert.NoError(t, err)
+	assert.True(t, v.IsNil())
+	err = v.SetValue(99)
+	assert.NoError(t, err)
+	assert.Equal(t, 3, user.ImgIDList[99])
 }

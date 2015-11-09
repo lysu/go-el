@@ -90,12 +90,15 @@ func (vr *variableResolver) String() string {
 }
 
 func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
+
+	var keySetter *KeySetter
 	current := reflect.ValueOf(target)
 
 	for _, part := range vr.parts {
 		// Before resolving the pointer, let's see if we have a method to call
 		// Problem with resolving the pointer is we're changing the receiver
 		isFunc := false
+		keySetter = nil
 		if part.typ == varTypeIdent {
 			funcValue := current.MethodByName(part.s)
 			if funcValue.IsValid() {
@@ -187,11 +190,15 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 					return nil, fmt.Errorf("Index out of range: %d (variable %s)", pv.Integer(), vr.String())
 				}
 			case reflect.Map:
-				resolveValue := pv.getResolvedValue()
+				resolveKey := pv.getResolvedValue()
 				if pv.IsInteger() {
-					resolveValue = reflect.ValueOf(pv.String())
+					resolveKey = reflect.ValueOf(pv.String())
 				}
-				current = current.MapIndex(resolveValue)
+				keySetter = &KeySetter{
+					prev: &Value{val: current},
+					key:  resolveKey,
+				}
+				current = current.MapIndex(resolveKey)
 			default:
 				return nil, fmt.Errorf("Can't access an index on type %s (variable %s)",
 					current.Kind().String(), vr.String())
@@ -289,10 +296,10 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 
 	if !current.IsValid() {
 		// Value is not valid (e. g. NIL value)
-		return AsValue(nil), nil
+		return AsValueWithSetter(nil, keySetter), nil
 	}
 
-	return &Value{val: current}, nil
+	return &Value{val: current, keySetter: keySetter}, nil
 }
 
 func (vr *variableResolver) GetPositionToken() *Token {

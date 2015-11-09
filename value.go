@@ -12,7 +12,13 @@ import (
 var NumberType = reflect.TypeOf(json.Number(""))
 
 type Value struct {
-	val reflect.Value
+	val       reflect.Value
+	keySetter *KeySetter
+}
+
+type KeySetter struct {
+	prev *Value
+	key  reflect.Value
 }
 
 func AsValue(i interface{}) *Value {
@@ -21,11 +27,22 @@ func AsValue(i interface{}) *Value {
 	}
 }
 
+func AsValueWithSetter(i interface{}, keySetter *KeySetter) *Value {
+	return &Value{
+		val:       reflect.ValueOf(i),
+		keySetter: keySetter,
+	}
+}
+
 func (v *Value) getResolvedValue() reflect.Value {
 	if v.val.IsValid() && v.val.Kind() == reflect.Ptr {
 		return v.val.Elem()
 	}
 	return v.val
+}
+
+func (v *Value) IsKeySetter() bool {
+	return v.keySetter != nil
 }
 
 func (v *Value) IsString() bool {
@@ -318,14 +335,25 @@ func (v *Value) SetValue(rightValue interface{}) error {
 		default:
 			return fmt.Errorf("Can not use use value %v to patch %s type", resolvedValue, resolvedValue.Kind())
 		}
-	} else {
-		if rvType != resolvedValue.Type() {
-			return fmt.Errorf("Can not use use value %v to patch %s type", rvType, resolvedValue.Type())
-		}
-		if !resolvedValue.CanSet() {
-			return fmt.Errorf("Var %#v is not settable", v.val)
-		}
-		resolvedValue.Set(reflect.ValueOf(rightValue))
+		return nil
 	}
+
+	if v.IsKeySetter() {
+		setter := v.keySetter
+		target := setter.prev.getResolvedValue()
+		switch target.Kind() {
+		case reflect.Map:
+			target.SetMapIndex(setter.key, reflect.ValueOf(rightValue))
+			return nil
+		}
+	}
+
+	if rvType != resolvedValue.Type() {
+		return fmt.Errorf("Can not use use value %v to patch %s type", rvType, resolvedValue.Type())
+	}
+	if !resolvedValue.CanSet() {
+		return fmt.Errorf("Var %#v is not settable", v.val)
+	}
+	resolvedValue.Set(reflect.ValueOf(rightValue))
 	return nil
 }
