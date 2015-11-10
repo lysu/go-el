@@ -39,7 +39,7 @@ As example, we have some data like this:
     	return b.Comments["0"]
     }
 
-and we init them with some test data:
+then we init them with some test data:
 
     b := &Blog{
       Title:      "Blog title1",
@@ -105,9 +105,9 @@ Using `el.Expression`, we can navigate from root(`b`) to anywhere in this struct
 
 function can return only `ONE` result
 
-  exp := el.Expression("FirstComment().Content")
-  v, _ := exp.Execute(&data)
-  fmt.Printf("%v\n", v.interface()) //==> test  
+    exp := el.Expression("FirstComment().Content")
+    v, _ := exp.Execute(&data)
+    fmt.Printf("%v\n", v.interface()) //==> test  
 
 #### 7. Modify Value
 
@@ -140,9 +140,12 @@ This will modify three properties at once~ (but we still meet some rule of refec
 
 ## More
 
-See our test [expression](https://github.com/lysu/go-el/blob/master/expression_test.go)  [patcher](https://github.com/lysu/go-el/blob/master/patcher_test.go)
+See our Example in Unit-Test:
 
-# TODO
+- [expression](https://github.com/lysu/go-el/blob/master/expression_test.go)  
+- [patcher](https://github.com/lysu/go-el/blob/master/patcher_test.go)
+
+## TODO
 
 generate expression between two data..like diff..- -?
 
