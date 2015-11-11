@@ -177,7 +177,7 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 				return nil, fmt.Errorf("'%s' can not be index access (it is %s)", vr.String(), current.Kind().String())
 			}
 
-			pv, err := part.indexArg.Evaluate(target)
+			idxVal, err := part.indexArg.Evaluate(target)
 			if err != nil {
 				return nil, err
 			}
@@ -185,15 +185,32 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 			switch current.Kind() {
 			case reflect.String, reflect.Array, reflect.Slice:
 				currentLen := current.Len()
-				if currentLen > pv.Integer() {
-					current = current.Index(pv.Integer())
+				resolveKey := idxVal.getResolvedValue()
+				if currentLen > idxVal.Integer() {
+					current = current.Index(idxVal.Integer())
+					keySetter = &KeySetter{
+						prev: &Value{val: current},
+						key:  resolveKey,
+					}
 				} else {
-					return nil, fmt.Errorf("Index out of range: %d (variable %s)", pv.Integer(), vr.String())
+					if current.Kind() != reflect.Slice {
+						return nil, fmt.Errorf("Index out of range: %d (variable %s)", idxVal.Integer(), vr.String())
+					}
+					idxInt := int(idxVal.Integer())
+					nav := reflect.MakeSlice(current.Type(), idxInt+1, 2*(idxInt+1)+1)
+					reflect.Copy(nav, current)
+					current.Set(nav)
+					current.SetLen(idxInt + 1)
+					current = current.Index(idxInt)
+					keySetter = &KeySetter{
+						prev: &Value{val: current},
+						key:  resolveKey,
+					}
 				}
 			case reflect.Map:
-				resolveKey := pv.getResolvedValue()
-				if pv.IsInteger() {
-					resolveKey = reflect.ValueOf(pv.String())
+				resolveKey := idxVal.getResolvedValue()
+				if idxVal.IsInteger() {
+					resolveKey = reflect.ValueOf(idxVal.String())
 				}
 				keySetter = &KeySetter{
 					prev: &Value{val: current},

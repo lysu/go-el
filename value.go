@@ -419,6 +419,13 @@ func (v *Value) SetValue(rightValue interface{}) error {
 			}
 			target.SetMapIndex(setter.key, reflect.ValueOf(rightValue))
 			return nil
+		case reflect.Slice:
+			if rvType == NumberType {
+				nv := rightValue.(json.Number)
+				rightValue = v.ToRealNumber(nv, target.Type().Elem())
+			}
+			target.Index(int(setter.key.Int())).Set(reflect.ValueOf(rightValue))
+			return nil
 		}
 	}
 

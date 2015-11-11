@@ -160,5 +160,7 @@ func TestIndexSet(t *testing.T) {
 
 	exp = el.Expression("ImgIDList[99]")
 	v, err = exp.Execute(&user)
-	assert.NotNil(t, err)
+	assert.Nil(t, err)
+	v.SetValue(99)
+	assert.Equal(t, 99, user.ImgIDList[99])
 }
