@@ -1,5 +1,7 @@
 package el
 
+import "fmt"
+
 // Patch contains a group path and value
 type Patch map[Expression]interface{}
 
@@ -14,6 +16,10 @@ func (p *Patcher) PatchIt(target interface{}, patch Patch) error {
 		targetValue, err := path.Execute(target)
 		if err != nil {
 			return err
+		}
+
+		if targetValue.IsNil() {
+			return fmt.Errorf("path: %s doesn't match any property in target", path)
 		}
 
 		err = targetValue.SetValue(value)
