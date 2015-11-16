@@ -197,10 +197,15 @@ func (vr *variableResolver) resolve(target interface{}) (*Value, error) {
 						return nil, fmt.Errorf("Index out of range: %d (variable %s)", idxVal.Integer(), vr.String())
 					}
 					idxInt := int(idxVal.Integer())
-					nav := reflect.MakeSlice(current.Type(), idxInt+1, 2*(idxInt+1)+1)
-					reflect.Copy(nav, current)
-					current.Set(nav)
-					current.SetLen(idxInt + 1)
+					wantLen := idxInt + 1
+					if wantLen > current.Cap() {
+						nav := reflect.MakeSlice(current.Type(), wantLen, wantLen*2)
+						reflect.Copy(nav, current)
+						current.Set(nav)
+						current.SetLen(wantLen)
+					} else {
+						current.SetLen(wantLen)
+					}
 					current = current.Index(idxInt)
 					keySetter = &KeySetter{
 						prev: &Value{val: current},

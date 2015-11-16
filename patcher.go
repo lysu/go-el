@@ -18,7 +18,7 @@ func (p *Patcher) PatchIt(target interface{}, patch Patch) error {
 			return err
 		}
 
-		if targetValue.IsNil() {
+		if targetValue.IsNil() && targetValue.keySetter == nil {
 			return fmt.Errorf("path: %s doesn't match any property in target", path)
 		}
 
